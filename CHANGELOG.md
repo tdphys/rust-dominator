@@ -1,3 +1,7 @@
+## 0.5.37 - (2024-08-16)
+* Adding in `media_query` function.
+* Adding in `color_scheme` function.
+
 ## 0.5.36 - (2024-07-28)
 * Fixing a bug with the `is_window_loaded` and `window_size` signals.
 
