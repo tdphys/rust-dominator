@@ -301,6 +301,193 @@ pub fn window_size() -> impl Signal<Item = WindowSize> {
 }
 
 
+fn media_query_raw<A, F>(query: &str, mut f: F) -> (Mutable<A>, EventListener)
+    where A: PartialEq + 'static,
+          F: FnMut(bool) -> A + 'static {
+
+    let query = WINDOW.with(|window| window.match_media(query).unwrap().unwrap());
+
+    let mutable = Mutable::new(f(query.matches()));
+
+    let listener = on(&query, &EventOptions::default(), {
+        let mutable = mutable.clone();
+        let query = query.clone();
+
+        move |_: crate::events::Change| {
+            //let event: &web_sys::MediaQueryListEvent = event.unchecked_ref();
+            //event.matches()
+
+            mutable.set_neq(f(query.matches()));
+        }
+    });
+
+    (mutable, listener)
+}
+
+
+#[derive(Debug)]
+#[must_use = "Signals do nothing unless polled"]
+struct MediaQuerySignal {
+    signal: MutableSignal<bool>,
+    _listener: EventListener,
+}
+
+impl Signal for MediaQuerySignal {
+    type Item = bool;
+
+    #[inline]
+    fn poll_change(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        Pin::new(&mut self.signal).poll_change(cx)
+    }
+}
+
+/// `Signal` which is `true` if the media query matches.
+///
+/// The Signal will automatically update when the situation changes.
+///
+/// [MDN documentation](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_media_queries)
+///
+/// # Example
+///
+/// ```rust
+/// media_query("(max-width: 500px) and (max-height: 300px)").map(|small| {
+///     // The window is less than 500px wide AND the window is less than 300px tall
+///     if small {
+///         ...
+///
+///     } else {
+///         ...
+///     }
+/// })
+/// ```
+///
+/// ```rust
+/// media_query("(orientation: portrait)").map(|portrait| {
+///     if portrait {
+///         // The browser is in portrait mode
+///
+///     } else {
+///         // The browser is in landscape mode
+///     }
+/// })
+/// ```
+///
+/// ```rust
+/// media_query("(display-mode: fullscreen)").map(|fullscreen| {
+///     if fullscreen {
+///         // The browser is in fullscreen mode
+///
+///     } else {
+///         // The browser is not in fullscreen mode
+///     }
+/// })
+/// ```
+pub fn media_query(query: &str) -> impl Signal<Item = bool> {
+    let (mutable, listener) = media_query_raw(query, |value| value);
+
+    MediaQuerySignal {
+        signal: mutable.signal(),
+        _listener: listener,
+    }
+}
+
+
+/// Color scheme of the browser.
+///
+/// This is returned from the [`color_scheme`] function.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ColorScheme {
+    Light,
+    Dark,
+}
+
+impl ColorScheme {
+    #[inline]
+    fn from_bool(matches: bool) -> Self {
+        if matches {
+            Self::Dark
+        } else {
+            Self::Light
+        }
+    }
+
+    /// Whether the color scheme is light.
+    pub fn is_light(self) -> bool {
+        matches!(self, Self::Light)
+    }
+
+    /// Whether the color scheme is dark.
+    pub fn is_dark(self) -> bool {
+        matches!(self, Self::Dark)
+    }
+
+    /// Chooses a value based on whether the color scheme is light or dark.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// // If the color scheme is light, then it returns "white"
+    /// // If the color scheme is dark, then it returns "black"
+    /// color_scheme().map(|x| x.choose("white", "black"))
+    /// ```
+    #[inline]
+    pub fn choose<A>(self, light: A, dark: A) -> A {
+        match self {
+            Self::Light => light,
+            Self::Dark => dark,
+        }
+    }
+}
+
+
+thread_local! {
+    static COLOR_SCHEME: RefCounter<MutableListener<ColorScheme>> = RefCounter::new();
+}
+
+
+#[derive(Debug)]
+#[must_use = "Signals do nothing unless polled"]
+struct ColorSchemeSignal {
+    signal: MutableSignal<ColorScheme>,
+}
+
+impl Signal for ColorSchemeSignal {
+    type Item = ColorScheme;
+
+    #[inline]
+    fn poll_change(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        Pin::new(&mut self.signal).poll_change(cx)
+    }
+}
+
+impl Drop for ColorSchemeSignal {
+    fn drop(&mut self) {
+        COLOR_SCHEME.with(|x| x.decrement());
+    }
+}
+
+
+/// The color scheme of the browser.
+///
+/// This can be used to automatically adjust your website's colors based on
+/// whether the user prefers dark mode or light mode.
+///
+/// [MDN documentation](https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme)
+pub fn color_scheme() -> impl Signal<Item = ColorScheme> {
+    let signal = COLOR_SCHEME.with(|counter| {
+        let counter = counter.increment(|| {
+            let (mutable, listener) = media_query_raw("(prefers-color-scheme: dark)", ColorScheme::from_bool);
+
+            MutableListener::new(mutable, listener)
+        });
+
+        counter.as_mutable().signal()
+    });
+
+    ColorSchemeSignal { signal }
+}
+
+
 // TODO should this intern ?
 #[inline]
 pub fn text(value: &str) -> Dom {

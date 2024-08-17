@@ -55,6 +55,7 @@ features = [
     "HtmlTextAreaElement",
     "KeyboardEvent",
     "Location",
+    "MediaQueryList",
     "MouseEvent",
     "AnimationEvent",
     "WheelEvent",
