@@ -314,9 +314,6 @@ fn media_query_raw<A, F>(query: &str, mut f: F) -> (Mutable<A>, EventListener)
         let query = query.clone();
 
         move |_: crate::events::Change| {
-            //let event: &web_sys::MediaQueryListEvent = event.unchecked_ref();
-            //event.matches()
-
             mutable.set_neq(f(query.matches()));
         }
     });
@@ -412,11 +409,13 @@ impl ColorScheme {
     }
 
     /// Whether the color scheme is light.
+    #[inline]
     pub fn is_light(self) -> bool {
         matches!(self, Self::Light)
     }
 
     /// Whether the color scheme is dark.
+    #[inline]
     pub fn is_dark(self) -> bool {
         matches!(self, Self::Dark)
     }
@@ -767,6 +766,120 @@ impl Default for EventOptions {
         Self {
             bubbles: false,
             preventable: false,
+        }
+    }
+}
+
+
+/// Scroll behavior for [`ScrollIntoView`].
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum ScrollBehavior {
+    /// The behavior is determined by the [`scroll-behavior`](https://developer.mozilla.org/en-US/docs/Web/CSS/scroll-behavior) CSS property.
+    ///
+    /// This is usually the same as [`ScrollBehavior::Instant`].
+    Auto,
+
+    /// Instantly scrolls to the final position.
+    Instant,
+
+    /// Smoothly scrolls from the current position to the final position.
+    Smooth,
+}
+
+impl ScrollBehavior {
+    fn into_js(self) -> web_sys::ScrollBehavior {
+        match self {
+            Self::Auto => web_sys::ScrollBehavior::Auto,
+            Self::Instant => web_sys::ScrollBehavior::Instant,
+            Self::Smooth => web_sys::ScrollBehavior::Smooth,
+        }
+    }
+}
+
+impl Default for ScrollBehavior {
+    fn default() -> Self {
+        Self::Auto
+    }
+}
+
+
+/// Scroll alignment for [`ScrollIntoView`].
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum ScrollAlign {
+    /// Scrolls so that the element is in the top / left corner of the screen.
+    Start,
+
+    /// Scrolls so that the element is centered in the middle of the screen.
+    Center,
+
+    /// Scrolls so that the element is in the bottom / right corner of the screen.
+    End,
+
+    /// If the element is already in view, then do nothing.
+    ///
+    /// If the element is not in view, then scroll the smallest amount to make the element in view.
+    Nearest,
+}
+
+impl ScrollAlign {
+    fn into_js(self) -> web_sys::ScrollLogicalPosition {
+        match self {
+            Self::Start => web_sys::ScrollLogicalPosition::Start,
+            Self::Center => web_sys::ScrollLogicalPosition::Center,
+            Self::End => web_sys::ScrollLogicalPosition::End,
+            Self::Nearest => web_sys::ScrollLogicalPosition::Nearest,
+        }
+    }
+}
+
+
+/// Specifies the scroll behavior for [`DomBuilder::scroll_into_view_signal`].
+#[derive(Debug, Clone, Hash, PartialEq)]
+pub struct ScrollIntoView {
+    /// Behavior while scrolling.
+    pub behavior: ScrollBehavior,
+
+    /// Horizontal alignment.
+    pub align_x: ScrollAlign,
+
+    /// Vertical alignment.
+    pub align_y: ScrollAlign,
+}
+
+impl ScrollIntoView {
+    /// Smoothly scrolls until the element is in the middle of the screen.
+    pub fn smooth_center() -> Self {
+        Self {
+            behavior: ScrollBehavior::Smooth,
+            align_x: ScrollAlign::Center,
+            align_y: ScrollAlign::Center,
+        }
+    }
+
+    /// Smoothly scrolls the minimum amount until the element is in view.
+    pub fn smooth_nearest() -> Self {
+        Self {
+            behavior: ScrollBehavior::Smooth,
+            align_x: ScrollAlign::Nearest,
+            align_y: ScrollAlign::Nearest,
+        }
+    }
+
+    fn into_js(&self) -> web_sys::ScrollIntoViewOptions {
+        let output = web_sys::ScrollIntoViewOptions::new();
+        output.set_inline(self.align_x.into_js());
+        output.set_block(self.align_y.into_js());
+        output.set_behavior(self.behavior.into_js());
+        output
+    }
+}
+
+impl Default for ScrollIntoView {
+    fn default() -> Self {
+        Self {
+            behavior: ScrollBehavior::default(),
+            align_x: ScrollAlign::Start,
+            align_y: ScrollAlign::Nearest,
         }
     }
 }
@@ -1344,6 +1457,36 @@ impl<A> DomBuilder<A> where A: AsRef<Element> {
     pub fn scroll_top_signal<B>(mut self, signal: B) -> Self where B: Signal<Item = Option<i32>> + 'static {
         // TODO bindings function for this ?
         self.set_scroll_signal(signal, Element::set_scroll_top);
+        self
+    }
+
+
+    // TODO should this inline ?
+    // TODO track_caller
+    fn set_scroll_into_view_signal<B>(&mut self, signal: B)
+        where B: Signal<Item = Option<ScrollIntoView>> + 'static {
+
+        let element: Element = self.element.as_ref().clone();
+
+        // This needs to use `after_insert` because scrolling an element before it is in the DOM has no effect
+        self.callbacks.after_insert(move |callbacks| {
+            callbacks.after_remove(for_each(signal, move |options| {
+                if let Some(options) = options {
+                    element.scroll_into_view_with_scroll_into_view_options(&options.into_js());
+                }
+            }));
+        });
+    }
+
+    /// Scrolls the document to ensure that the element is in view.
+    ///
+    /// If the Signal returns `None` then it doesn't do any scrolling.
+    ///
+    /// If the Signal returns `Some` then the [`ScrollIntoView`] describes how the scrolling happens.
+    #[inline]
+    #[track_caller]
+    pub fn scroll_into_view_signal<B>(mut self, signal: B) -> Self where B: Signal<Item = Option<ScrollIntoView>> + 'static {
+        self.set_scroll_into_view_signal(signal);
         self
     }
 }

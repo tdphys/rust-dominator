@@ -29,7 +29,7 @@ wasm-bindgen-futures = "0.4.9"
 gloo-events = "0.1.2"
 
 [dependencies.web-sys]
-version = "0.3.22"
+version = "0.3.70"
 features = [
     "CharacterData",
     "Comment",
@@ -61,6 +61,9 @@ features = [
     "WheelEvent",
     "Node",
     "PointerEvent",
+    "ScrollBehavior",
+    "ScrollIntoViewOptions",
+    "ScrollLogicalPosition",
     "ShadowRoot",
     "ShadowRootInit",
     "ShadowRootMode",
