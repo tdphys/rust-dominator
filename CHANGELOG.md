@@ -1,3 +1,6 @@
+## 0.5.38 - (2024-08-22)
+* Adding in `scroll_into_view_signal` method.
+
 ## 0.5.37 - (2024-08-16)
 * Adding in `media_query` function.
 * Adding in `color_scheme` function.
