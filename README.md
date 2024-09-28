@@ -1,7 +1,7 @@
 [![crates.io](https://img.shields.io/crates/v/dominator.svg)](https://crates.io/crates/dominator)
 [![docs.rs](https://docs.rs/dominator/badge.svg)](https://docs.rs/dominator)
 
-Zero-cost ultra-high-performance declarative [DOM] library using [FRP] signals for [Rust]!
+Zero-cost ultra-high-performance declarative [DOM] library using [FRP] signals for Rust!
 
 Overview
 ========
@@ -34,7 +34,6 @@ Community
 We have a [Discord server](https://discord.gg/fDFGvnR). Feel free to ask any Dominator questions there.
 
 [benchmark]: https://rawgit.com/krausest/js-framework-benchmark/master/webdriver-ts-results/table.html
-[DOM]: https://en.wikipedia.org/wiki/Document_Object_Model
-[FRP]: https://en.wikipedia.org/wiki/Functional_reactive_programming
-[Rust]: https://www.rust-lang.org/
-[VDOM]: https://en.wikipedia.org/wiki/Virtual_DOM
+[DOM]: https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model
+[FRP]: https://quickbirdstudios.com/blog/what-is-functional-reactive-programming-frp/
+[VDOM]: https://medium.com/cstech/demystifying-javascript-virtual-dom-a-guide-for-web-developers-fae7dd9d0cd0
